@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>衝突檢查測試</title>
+<style>
+  body { font-family: "Microsoft JhengHei", sans-serif; max-width: 760px; margin: 24px auto; padding: 0 16px; color: #222; }
+  #summary { font-size: 20px; font-weight: bold; padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; }
+  #summary.pass { background: #e6f6ea; color: #1b6e32; }
+  #summary.fail { background: #fdeaea; color: #b00020; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #ccc; padding: 8px 10px; text-align: left; }
+  th { background: #f3f3f3; }
+  tr.fail td { background: #fff4f4; }
+</style>
+</head>
+<body>
+
+<h1>衝突檢查測試（findConflict）</h1>
+<div id="summary"></div>
+<table>
+  <thead>
+    <tr><th>測試名稱</th><th>預期值</th><th>實際值</th><th>結果</th></tr>
+  </thead>
+  <tbody id="results"></tbody>
+</table>
+
+<script src="app.js"></script>
+<script>
+  // 既有預約：會議室 0、2025-01-01、10:00–12:00
+  const DATE = '2025-01-01';
+  const existing = [{ id: 'x', room: 0, date: DATE, start: 10, end: 12, name: '既有' }];
+
+  // 每筆測試：名稱、新預約、預期是否衝突（true＝衝突、false＝允許）
+  const cases = [
+    // 一般情況
+    { name: '完全相同時段', booking: { room: 0, date: DATE, start: 10, end: 12 }, expected: true },
+    { name: '完全錯開的時段（14–16）', booking: { room: 0, date: DATE, start: 14, end: 16 }, expected: false },
+    // 邊界情況
+    { name: '部分重疊：前段（9–11）', booking: { room: 0, date: DATE, start: 9, end: 11 }, expected: true },
+    { name: '部分重疊：後段（11–13）', booking: { room: 0, date: DATE, start: 11, end: 13 }, expected: true },
+    { name: '新預約完全包含既有（9–13）', booking: { room: 0, date: DATE, start: 9, end: 13 }, expected: true },
+    { name: '新預約被既有完全包含（11–12）', booking: { room: 0, date: DATE, start: 11, end: 12 }, expected: true },
+    { name: '緊鄰時段：前一段（8–10）', booking: { room: 0, date: DATE, start: 8, end: 10 }, expected: false },
+    { name: '緊鄰時段：後一段（12–14）', booking: { room: 0, date: DATE, start: 12, end: 14 }, expected: false },
+    { name: '不同會議室同時段', booking: { room: 1, date: DATE, start: 10, end: 12 }, expected: false },
+    { name: '不同日期同時段', booking: { room: 0, date: '2025-01-02', start: 10, end: 12 }, expected: false },
+  ];
+
+  // 以文字顯示結果（用 textContent，不用 innerHTML）
+  function addRow(tr, texts) {
+    texts.forEach(t => {
+      const td = document.createElement('td');
+      td.textContent = t;
+      tr.appendChild(td);
+    });
+  }
+
+  const label = v => (v ? '衝突' : '允許');
+  const tbody = document.getElementById('results');
+  let passed = 0;
+
+  cases.forEach(c => {
+    const actual = findConflict(existing, c.booking) !== undefined;
+    const ok = actual === c.expected;
+    if (ok) passed++;
+    const tr = document.createElement('tr');
+    if (!ok) tr.className = 'fail';
+    addRow(tr, [c.name, label(c.expected), label(actual), ok ? '✅' : '❌']);
+    tbody.appendChild(tr);
+  });
+
+  const summary = document.getElementById('summary');
+  summary.textContent = `通過 ${passed} 項／共 ${cases.length} 項`;
+  summary.className = passed === cases.length ? 'pass' : 'fail';
+</script>
+</body>
+</html>
