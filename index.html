@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>會議室預約看板</title>
+<style>
+  /* ===== 基本樣式 ===== */
+  :root {
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --text: #1f2328;
+    --muted: #6b7280;
+    --line: #e3e5e8;
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --error-bg: #fdecec;
+    --error-text: #b42318;
+    --ok-bg: #e8f6ee;
+    --ok-text: #18794e;
+    --room-a: #dbeafe;
+    --room-b: #dcfce7;
+    --room-c: #fef3c7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  header {
+    background: var(--card);
+    border-bottom: 1px solid var(--line);
+    padding: 16px 24px;
+  }
+  header h1 { margin: 0; font-size: 22px; }
+  main {
+    max-width: 1100px;
+    margin: 24px auto;
+    padding: 0 16px;
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+  @media (max-width: 800px) {
+    main { grid-template-columns: 1fr; }
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .card h2 { margin: 0 0 16px; font-size: 18px; }
+
+  /* ===== 表單 ===== */
+  label { display: block; font-size: 14px; color: var(--muted); margin-bottom: 4px; }
+  .field { margin-bottom: 14px; }
+  .row { display: flex; gap: 12px; }
+  .row .field { flex: 1; }
+  input, select {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 15px;
+    font-family: inherit;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fff;
+  }
+  input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
+  button {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    font-family: inherit;
+    color: #fff;
+    background: var(--primary);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  button:hover { background: var(--primary-dark); }
+
+  /* ===== 提示訊息 ===== */
+  .message {
+    display: none;
+    margin-top: 14px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  .message.error { display: block; background: var(--error-bg); color: var(--error-text); }
+  .message.ok { display: block; background: var(--ok-bg); color: var(--ok-text); }
+
+  /* ===== 當日看板 ===== */
+  .board-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .board-head h2 { margin: 0; }
+  .board-head input { width: auto; }
+  .grid {
+    display: grid;
+    grid-template-columns: 64px repeat(3, 1fr);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+    font-size: 14px;
+  }
+  .grid > div {
+    border-bottom: 1px solid var(--line);
+    border-left: 1px solid var(--line);
+    padding: 6px 8px;
+    min-height: 34px;
+  }
+  .grid .head { background: #f0f2f5; font-weight: bold; text-align: center; }
+  .grid .time { color: var(--muted); text-align: right; border-left: none; }
+  .grid .booked { font-weight: bold; }
+  .grid .booked.room-0 { background: var(--room-a); }
+  .grid .booked.room-1 { background: var(--room-b); }
+  .grid .booked.room-2 { background: var(--room-c); }
+  .grid .booked .sub { font-weight: normal; color: var(--muted); font-size: 12px; }
+
+  /* ===== 預約列表 ===== */
+  .list-title { margin: 24px 0 8px; font-size: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: normal; font-size: 14px; }
+  .empty { color: var(--muted); text-align: center; padding: 20px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>會議室預約看板</h1>
+</header>
+
+<main>
+  <!-- 左側：預約表單 -->
+  <section class="card">
+    <h2>新增預約</h2>
+    <form id="bookingForm" novalidate>
+      <div class="field">
+        <label for="room">會議室</label>
+        <select id="room"></select>
+      </div>
+      <div class="field">
+        <label for="date">日期</label>
+        <input type="date" id="date">
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="start">開始時段</label>
+          <select id="start"></select>
+        </div>
+        <div class="field">
+          <label for="end">結束時段</label>
+          <select id="end"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="name">預約人姓名</label>
+        <input type="text" id="name" maxlength="30" placeholder="請輸入姓名">
+      </div>
+      <button type="submit">送出預約</button>
+      <div id="message" class="message" role="status"></div>
+    </form>
+  </section>
+
+  <!-- 右側：當日預約 -->
+  <section class="card">
+    <div class="board-head">
+      <h2 id="boardTitle">當日預約</h2>
+      <input type="date" id="viewDate" aria-label="查看日期">
+    </div>
+    <div id="grid" class="grid"></div>
+
+    <h3 class="list-title">預約列表</h3>
+    <table>
+      <thead>
+        <tr><th>時段</th><th>會議室</th><th>預約人</th></tr>
+      </thead>
+      <tbody id="list"></tbody>
+    </table>
+  </section>
+</main>
+
+<script>
+  // ===== 設定 =====
+  const ROOMS = ['會議室 A', '會議室 B', '會議室 C']; // 固定 3 間會議室
+  const OPEN_HOUR = 8;   // 最早可預約時間（08:00）
+  const CLOSE_HOUR = 20; // 最晚結束時間（20:00）
+  const STORAGE_KEY = 'meeting-room-bookings';
+
+  // ===== DOM 元素 =====
+  const form = document.getElementById('bookingForm');
+  const roomSelect = document.getElementById('room');
+  const dateInput = document.getElementById('date');
+  const startSelect = document.getElementById('start');
+  const endSelect = document.getElementById('end');
+  const nameInput = document.getElementById('name');
+  const messageBox = document.getElementById('message');
+  const viewDateInput = document.getElementById('viewDate');
+  const boardTitle = document.getElementById('boardTitle');
+  const gridBox = document.getElementById('grid');
+  const listBody = document.getElementById('list');
+
+  // ===== 工具函式 =====
+
+  // 把小時數字轉成 "09:00" 格式
+  function formatHour(hour) {
+    return String(hour).padStart(2, '0') + ':00';
+  }
+
+  // 取得今天的日期字串（YYYY-MM-DD，本機時區）
+  function todayString() {
+    const d = new Date();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${m}-${day}`;
+  }
+
+  // 建立一個帶文字的元素（用 textContent 避免使用者輸入被當成 HTML）
+  function createEl(tag, text, className) {
+    const el = document.createElement(tag);
+    if (text !== undefined) el.textContent = text;
+    if (className) el.className = className;
+    return el;
+  }
+
+  // ===== 資料存取（localStorage） =====
+
+  // 讀取全部預約；資料損毀時回傳空陣列，避免整頁壞掉
+  function loadBookings() {
+    try {
+      const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      return Array.isArray(data) ? data : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // 寫入全部預約
+  function saveBookings(bookings) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(bookings));
+  }
+
+  // ===== 衝突檢查 =====
+
+  // 找出同會議室、同日期、時段重疊的預約；沒有則回傳 undefined
+  // 重疊條件：新開始 < 既有結束 且 新結束 > 既有開始（首尾相接不算衝突）
+  function findConflict(bookings, newBooking) {
+    return bookings.find(b =>
+      b.room === newBooking.room &&
+      b.date === newBooking.date &&
+      newBooking.start < b.end &&
+      newBooking.end > b.start
+    );
+  }
+
+  // ===== 提示訊息 =====
+  function showMessage(text, type) {
+    messageBox.textContent = text;
+    messageBox.className = 'message ' + type;
+  }
+
+  // ===== 初始化表單選項 =====
+  function initForm() {
+    ROOMS.forEach((name, index) => {
+      roomSelect.appendChild(new Option(name, index));
+    });
+    // 開始時段：08:00 ~ 19:00
+    for (let h = OPEN_HOUR; h < CLOSE_HOUR; h++) {
+      startSelect.appendChild(new Option(formatHour(h), h));
+    }
+    // 結束時段：09:00 ~ 20:00
+    for (let h = OPEN_HOUR + 1; h <= CLOSE_HOUR; h++) {
+      endSelect.appendChild(new Option(formatHour(h), h));
+    }
+    const today = todayString();
+    dateInput.value = today;
+    viewDateInput.value = today;
+  }
+
+  // 開始時段改變時，若結束時段不晚於開始，自動把結束調成開始後一小時
+  startSelect.addEventListener('change', () => {
+    const start = Number(startSelect.value);
+    if (Number(endSelect.value) <= start) {
+      endSelect.value = start + 1;
+    }
+  });
+
+  // 表單日期改變時，看板同步切到該日，方便確認當天空檔
+  dateInput.addEventListener('change', () => {
+    if (dateInput.value) {
+      viewDateInput.value = dateInput.value;
+      render();
+    }
+  });
+
+  viewDateInput.addEventListener('change', render);
+
+  // ===== 送出預約 =====
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+
+    const booking = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      room: Number(roomSelect.value),
+      date: dateInput.value,
+      start: Number(startSelect.value),
+      end: Number(endSelect.value),
+      name: nameInput.value.trim(),
+    };
+
+    // 基本欄位檢查
+    if (!booking.date) {
+      showMessage('請選擇日期。', 'error');
+      return;
+    }
+    if (booking.end <= booking.start) {
+      showMessage('結束時段必須晚於開始時段。', 'error');
+      return;
+    }
+    if (!booking.name) {
+      showMessage('請填寫預約人姓名。', 'error');
+      nameInput.focus();
+      return;
+    }
+
+    // 衝突檢查
+    const bookings = loadBookings();
+    const conflict = findConflict(bookings, booking);
+    if (conflict) {
+      showMessage(
+        `預約失敗：${ROOMS[conflict.room]} 在 ${conflict.date} ` +
+        `${formatHour(conflict.start)}–${formatHour(conflict.end)} ` +
+        `已被「${conflict.name}」預約，時段重疊。`,
+        'error'
+      );
+      return;
+    }
+
+    // 儲存並更新畫面
+    bookings.push(booking);
+    saveBookings(bookings);
+    showMessage(
+      `預約成功：${ROOMS[booking.room]} ${booking.date} ` +
+      `${formatHour(booking.start)}–${formatHour(booking.end)}（${booking.name}）`,
+      'ok'
+    );
+    nameInput.value = '';
+    viewDateInput.value = booking.date;
+    render();
+  });
+
+  // ===== 畫面繪製 =====
+  function render() {
+    const viewDate = viewDateInput.value || todayString();
+    const dayBookings = loadBookings()
+      .filter(b => b.date === viewDate)
+      .sort((a, b) => a.start - b.start || a.room - b.room);
+
+    boardTitle.textContent = `當日預約（${viewDate}）`;
+    renderGrid(dayBookings);
+    renderList(dayBookings);
+  }
+
+  // 時段看板：每列一小時，每欄一間會議室
+  function renderGrid(dayBookings) {
+    gridBox.innerHTML = '';
+    gridBox.appendChild(createEl('div', '時段', 'head'));
+    ROOMS.forEach(name => gridBox.appendChild(createEl('div', name, 'head')));
+
+    for (let h = OPEN_HOUR; h < CLOSE_HOUR; h++) {
+      gridBox.appendChild(createEl('div', formatHour(h), 'time'));
+      ROOMS.forEach((_, roomIndex) => {
+        const b = dayBookings.find(x => x.room === roomIndex && x.start <= h && h < x.end);
+        if (!b) {
+          gridBox.appendChild(createEl('div', ''));
+          return;
+        }
+        const cell = createEl('div', '', `booked room-${roomIndex}`);
+        if (b.start === h) {
+          // 只在預約的第一格顯示姓名與時段
+          cell.appendChild(createEl('div', b.name));
+          cell.appendChild(createEl('div', `${formatHour(b.start)}–${formatHour(b.end)}`, 'sub'));
+        }
+        gridBox.appendChild(cell);
+      });
+    }
+  }
+
+  // 預約列表：依時間排序
+  function renderList(dayBookings) {
+    listBody.innerHTML = '';
+    if (dayBookings.length === 0) {
+      const tr = document.createElement('tr');
+      const td = createEl('td', '這一天還沒有預約。', 'empty');
+      td.colSpan = 3;
+      tr.appendChild(td);
+      listBody.appendChild(tr);
+      return;
+    }
+    dayBookings.forEach(b => {
+      const tr = document.createElement('tr');
+      tr.appendChild(createEl('td', `${formatHour(b.start)}–${formatHour(b.end)}`));
+      tr.appendChild(createEl('td', ROOMS[b.room]));
+      tr.appendChild(createEl('td', b.name));
+      listBody.appendChild(tr);
+    });
+  }
+
+  // ===== 啟動 =====
+  initForm();
+  render();
+</script>
+</body>
+</html>
