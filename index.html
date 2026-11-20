@@ -511,8 +511,7 @@
 
   // ===== 衝突檢查 =====
 
-  // 找出同會議室、同日期、時段重疊的預約；沒有則回傳 undefined
-  // 重疊條件：新開始 < 既有結束 且 新結束 > 既有開始（首尾相接不算衝突）
+  // 找出同會議室、同日期、時段重疊的預約（首尾相接不算）；沒有則回傳 undefined
   function findConflict(bookings, newBooking) {
     return bookings.find(b =>
       b.room === newBooking.room &&
