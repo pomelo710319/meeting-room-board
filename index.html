@@ -5,146 +5,274 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>會議室預約看板</title>
 <style>
-  /* ===== 基本樣式 ===== */
+  /* ===== 設計代幣 =====
+     設計概念：像會議室門牌的時刻表。三間會議室各有一個固定色，
+     看板上的預約是連續的色塊，而不是一格一格的小方塊。 */
   :root {
-    --bg: #f5f6f8;
-    --card: #ffffff;
-    --text: #1f2328;
-    --muted: #6b7280;
-    --line: #e3e5e8;
-    --primary: #2563eb;
-    --primary-dark: #1d4ed8;
-    --error-bg: #fdecec;
-    --error-text: #b42318;
-    --ok-bg: #e8f6ee;
-    --ok-text: #18794e;
-    --room-a: #dbeafe;
-    --room-b: #dcfce7;
-    --room-c: #fef3c7;
+    --paper: #e8ecef;      /* 頁面底色：偏冷的灰藍紙 */
+    --sheet: #f8f9fa;      /* 看板與表單的底色 */
+    --ink: #14202b;        /* 主要文字 */
+    --muted: #5a6978;      /* 次要文字 */
+    --rule: #cfd6dc;       /* 分隔線 */
+    --rule-soft: #e1e6ea;
+
+    --room-a: #0e7c86;     /* 青藍 */
+    --room-a-tint: #d3ecee;
+    --room-b: #5b46b5;     /* 紫 */
+    --room-b-tint: #e0dcf4;
+    --room-c: #b7790a;     /* 琥珀 */
+    --room-c-tint: #f6e6c4;
+
+    --accent: #14202b;     /* 主要按鈕沿用墨色，讓三個會議室色保持主角 */
+    --now: #d6342c;        /* 「現在」時間線 */
+    --error-bg: #fbe9e7;
+    --error-text: #a3261d;
+    --ok-bg: #e2f2e9;
+    --ok-text: #17663f;
+
+    --font: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-ui, sans-serif;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    line-height: 1.5;
+    font-family: var(--font);
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.55;
   }
+  :focus-visible { outline: 3px solid var(--room-b); outline-offset: 2px; }
+
+  /* ===== 頁首 ===== */
   header {
-    background: var(--card);
-    border-bottom: 1px solid var(--line);
-    padding: 16px 24px;
+    max-width: 1160px;
+    margin: 0 auto;
+    padding: 28px 20px 8px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
   }
-  header h1 { margin: 0; font-size: 22px; }
+  header h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: 0.02em; }
+  header .today { color: var(--muted); font-size: 15px; }
+
   main {
-    max-width: 1100px;
-    margin: 24px auto;
-    padding: 0 16px;
+    max-width: 1160px;
+    margin: 16px auto 40px;
+    padding: 0 20px;
     display: grid;
-    grid-template-columns: 320px 1fr;
+    grid-template-columns: minmax(0, 1fr) 312px;
     gap: 24px;
     align-items: start;
   }
-  @media (max-width: 800px) {
-    main { grid-template-columns: 1fr; }
+  /* 看板放左側（主角），表單放右側 */
+  .board { grid-column: 1; grid-row: 1; }
+  .booking { grid-column: 2; grid-row: 1; position: sticky; top: 16px; }
+  @media (max-width: 860px) {
+    main { grid-template-columns: minmax(0, 1fr); }
+    .board, .booking { grid-column: 1; position: static; }
+    .booking { grid-row: 2; }
   }
-  .card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 10px;
+
+  .panel {
+    background: var(--sheet);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
     padding: 20px;
   }
-  .card h2 { margin: 0 0 16px; font-size: 18px; }
+  .panel h2 { margin: 0 0 16px; font-size: 18px; }
 
   /* ===== 表單 ===== */
   label { display: block; font-size: 14px; color: var(--muted); margin-bottom: 4px; }
   .field { margin-bottom: 14px; }
   .row { display: flex; gap: 12px; }
-  .row .field { flex: 1; }
+  .row .field { flex: 1; min-width: 0; }
   input, select {
     width: 100%;
     padding: 8px 10px;
     font-size: 15px;
     font-family: inherit;
-    border: 1px solid var(--line);
-    border-radius: 6px;
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
     background: #fff;
   }
-  input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
-  button {
+  .submit {
     width: 100%;
-    padding: 10px;
+    padding: 11px;
     font-size: 16px;
+    font-weight: 700;
     font-family: inherit;
     color: #fff;
-    background: var(--primary);
+    background: var(--accent);
     border: none;
-    border-radius: 6px;
+    border-radius: 4px;
     cursor: pointer;
   }
-  button:hover { background: var(--primary-dark); }
+  .submit:hover { background: #2a3a49; }
 
   /* ===== 提示訊息 ===== */
   .message {
     display: none;
     margin-top: 14px;
     padding: 10px 12px;
-    border-radius: 6px;
+    border-radius: 4px;
     font-size: 14px;
   }
   .message.error { display: block; background: var(--error-bg); color: var(--error-text); }
   .message.ok { display: block; background: var(--ok-bg); color: var(--ok-text); }
 
-  /* ===== 當日看板 ===== */
+  /* ===== 看板標題列 ===== */
   .board-head {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
+    align-items: flex-end;
+    margin-bottom: 14px;
     gap: 12px;
     flex-wrap: wrap;
   }
-  .board-head h2 { margin: 0; }
+  .board-head h2 { margin: 0; font-size: 30px; font-weight: 800; line-height: 1.2; }
+  .board-head .weekday { display: block; font-size: 15px; font-weight: 400; color: var(--muted); }
   .board-head input { width: auto; }
+
+  /* ===== 時刻表看板 ===== */
+  .scroller { overflow-x: auto; }
   .grid {
     display: grid;
-    grid-template-columns: 64px repeat(3, 1fr);
-    border: 1px solid var(--line);
+    grid-template-columns: 56px repeat(3, minmax(120px, 1fr));
+    min-width: 520px;
+    background: var(--sheet);
+    border: 1px solid var(--rule);
     border-radius: 6px;
     overflow: hidden;
     font-size: 14px;
   }
-  .grid > div {
-    border-bottom: 1px solid var(--line);
-    border-left: 1px solid var(--line);
-    padding: 6px 8px;
-    min-height: 34px;
+  .grid .head {
+    padding: 10px 10px 12px;
+    border-left: 1px solid var(--rule-soft);
+    border-bottom: 2px solid var(--ink);
+    border-top: 5px solid var(--room-color);
   }
-  .grid .head { background: #f0f2f5; font-weight: bold; text-align: center; }
-  .grid .time { color: var(--muted); text-align: right; border-left: none; }
-  .grid .booked { font-weight: bold; }
-  .grid .booked.room-0 { background: var(--room-a); }
-  .grid .booked.room-1 { background: var(--room-b); }
-  .grid .booked.room-2 { background: var(--room-c); }
-  .grid .booked .sub { font-weight: normal; color: var(--muted); font-size: 12px; }
+  .grid .head.corner { border-left: none; border-top-color: transparent; }
+  .grid .head .name { font-weight: 800; font-size: 16px; }
+  .grid .head .state { font-size: 13px; color: var(--muted); }
+  .grid .head .state.busy { color: var(--room-color); font-weight: 700; }
+  .grid .time {
+    padding: 6px 8px 0 0;
+    text-align: right;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  /* 空時段：點一下就帶入表單 */
+  .grid .slot {
+    all: unset;
+    box-sizing: border-box;
+    min-height: 44px;
+    border-left: 1px solid var(--rule-soft);
+    border-bottom: 1px solid var(--rule-soft);
+    cursor: pointer;
+    color: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+  }
+  .grid .slot:hover, .grid .slot:focus-visible { background: var(--tint); color: var(--room-color); }
+  .grid .slot:focus-visible { outline: 3px solid var(--room-b); outline-offset: -3px; }
+  /* 預約：跨越多個時段的連續色塊 */
+  .grid .booked {
+    margin: 2px 4px;
+    padding: 6px 10px;
+    background: var(--tint);
+    border-left: 5px solid var(--room-color);
+    border-radius: 3px;
+    z-index: 1;
+    overflow: hidden;
+  }
+  .grid .booked .who { font-weight: 800; }
+  .grid .booked .span { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .grid .booked.fresh { animation: settle 0.45s ease-out; }
+  @keyframes settle {
+    from { transform: scale(0.96); opacity: 0.4; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  /* 現在時間線（只在查看「今天」時出現） */
+  .grid .nowline {
+    grid-column: 2 / -1;
+    position: relative;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .grid .nowline::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0;
+    top: var(--at);
+    border-top: 2px solid var(--now);
+  }
+  .grid .nowline::after {
+    content: "";
+    position: absolute;
+    left: -5px;
+    top: calc(var(--at) - 4px);
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--now);
+  }
+  .room-0 { --room-color: var(--room-a); --tint: var(--room-a-tint); }
+  .room-1 { --room-color: var(--room-b); --tint: var(--room-b-tint); }
+  .room-2 { --room-color: var(--room-c); --tint: var(--room-c-tint); }
 
   /* ===== 預約列表 ===== */
-  .list-title { margin: 24px 0 8px; font-size: 16px; }
+  .list-title { margin: 28px 0 8px; font-size: 16px; }
   table { width: 100%; border-collapse: collapse; font-size: 15px; }
-  th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); }
-  th { color: var(--muted); font-weight: normal; font-size: 14px; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--rule); }
+  th { color: var(--muted); font-weight: 400; font-size: 14px; }
+  td.time-cell { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td .dot {
+    display: inline-block;
+    width: 10px; height: 10px;
+    margin-right: 8px;
+    border-radius: 2px;
+    background: var(--room-color);
+  }
   .empty { color: var(--muted); text-align: center; padding: 20px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .grid .booked.fresh { animation: none; }
+  }
 </style>
 </head>
 <body>
 
 <header>
   <h1>會議室預約看板</h1>
+  <div class="today" id="todayText"></div>
 </header>
 
 <main>
-  <!-- 左側：預約表單 -->
-  <section class="card">
+  <!-- 左側：當日看板 -->
+  <section class="board" aria-labelledby="boardTitle">
+    <div class="board-head">
+      <h2 id="boardTitle">當日預約</h2>
+      <input type="date" id="viewDate" aria-label="查看日期">
+    </div>
+    <div class="scroller">
+      <div id="grid" class="grid"></div>
+    </div>
+
+    <h3 class="list-title">預約列表</h3>
+    <table>
+      <thead>
+        <tr><th>時段</th><th>會議室</th><th>預約人</th></tr>
+      </thead>
+      <tbody id="list"></tbody>
+    </table>
+  </section>
+
+  <!-- 右側：預約表單 -->
+  <section class="panel booking">
     <h2>新增預約</h2>
     <form id="bookingForm" novalidate>
       <div class="field">
@@ -169,26 +297,9 @@
         <label for="name">預約人姓名</label>
         <input type="text" id="name" maxlength="30" placeholder="請輸入姓名">
       </div>
-      <button type="submit">送出預約</button>
+      <button type="submit" class="submit">送出預約</button>
       <div id="message" class="message" role="status"></div>
     </form>
-  </section>
-
-  <!-- 右側：當日預約 -->
-  <section class="card">
-    <div class="board-head">
-      <h2 id="boardTitle">當日預約</h2>
-      <input type="date" id="viewDate" aria-label="查看日期">
-    </div>
-    <div id="grid" class="grid"></div>
-
-    <h3 class="list-title">預約列表</h3>
-    <table>
-      <thead>
-        <tr><th>時段</th><th>會議室</th><th>預約人</th></tr>
-      </thead>
-      <tbody id="list"></tbody>
-    </table>
   </section>
 </main>
 
@@ -211,6 +322,10 @@
   const boardTitle = document.getElementById('boardTitle');
   const gridBox = document.getElementById('grid');
   const listBody = document.getElementById('list');
+  const todayText = document.getElementById('todayText');
+
+  // 剛送出的預約 id，用來讓該色塊播放一次出現動畫
+  let freshId = null;
 
   // ===== 工具函式 =====
 
@@ -225,6 +340,16 @@
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${d.getFullYear()}-${m}-${day}`;
+  }
+
+  // 把 YYYY-MM-DD 轉成「11 月 20 日」與「星期五」
+  function describeDate(dateStr) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    return {
+      day: `${m} 月 ${d} 日`,
+      weekday: date.toLocaleDateString('zh-TW', { weekday: 'long' }),
+    };
   }
 
   // 建立一個帶文字的元素（用 textContent 避免使用者輸入被當成 HTML）
@@ -287,6 +412,8 @@
     const today = todayString();
     dateInput.value = today;
     viewDateInput.value = today;
+    const t = describeDate(today);
+    todayText.textContent = `今天 ${t.day} ${t.weekday}`;
   }
 
   // 開始時段改變時，若結束時段不晚於開始，自動把結束調成開始後一小時
@@ -358,7 +485,9 @@
     );
     nameInput.value = '';
     viewDateInput.value = booking.date;
+    freshId = booking.id;
     render();
+    freshId = null;
   });
 
   // ===== 畫面繪製 =====
@@ -368,34 +497,96 @@
       .filter(b => b.date === viewDate)
       .sort((a, b) => a.start - b.start || a.room - b.room);
 
-    boardTitle.textContent = `當日預約（${viewDate}）`;
-    renderGrid(dayBookings);
+    const d = describeDate(viewDate);
+    boardTitle.textContent = '';
+    boardTitle.appendChild(document.createTextNode(d.day));
+    boardTitle.appendChild(createEl('span', d.weekday, 'weekday'));
+
+    renderGrid(dayBookings, viewDate);
     renderList(dayBookings);
   }
 
-  // 時段看板：每列一小時，每欄一間會議室
-  function renderGrid(dayBookings) {
-    gridBox.innerHTML = '';
-    gridBox.appendChild(createEl('div', '時段', 'head'));
-    ROOMS.forEach(name => gridBox.appendChild(createEl('div', name, 'head')));
+  // 目前的格線列號（第 1 列是標題，之後每小時一列）
+  function rowOf(hour) {
+    return hour - OPEN_HOUR + 2;
+  }
 
+  // 時刻表看板：每列一小時，每欄一間會議室；預約是跨列的連續色塊
+  function renderGrid(dayBookings, viewDate) {
+    gridBox.innerHTML = '';
+    const now = new Date();
+    const isToday = viewDate === todayString();
+
+    // 標題列：會議室名稱與目前狀態
+    gridBox.appendChild(createEl('div', '', 'head corner'));
+    ROOMS.forEach((name, roomIndex) => {
+      const head = createEl('div', '', `head room-${roomIndex}`);
+      head.appendChild(createEl('div', name, 'name'));
+      const inUse = isToday && dayBookings.find(
+        b => b.room === roomIndex && b.start <= now.getHours() && now.getHours() < b.end
+      );
+      let stateText;
+      let busy = false;
+      if (inUse) {
+        stateText = `使用中・${inUse.name}`;
+        busy = true;
+      } else if (isToday) {
+        stateText = '目前空閒';
+      } else {
+        const count = dayBookings.filter(b => b.room === roomIndex).length;
+        stateText = count ? `${count} 筆預約` : '整天空閒';
+      }
+      head.appendChild(createEl('div', stateText, busy ? 'state busy' : 'state'));
+      gridBox.appendChild(head);
+    });
+
+    // 每個小時一列：時間標籤與空時段
     for (let h = OPEN_HOUR; h < CLOSE_HOUR; h++) {
-      gridBox.appendChild(createEl('div', formatHour(h), 'time'));
-      ROOMS.forEach((_, roomIndex) => {
-        const b = dayBookings.find(x => x.room === roomIndex && x.start <= h && h < x.end);
-        if (!b) {
-          gridBox.appendChild(createEl('div', ''));
-          return;
-        }
-        const cell = createEl('div', '', `booked room-${roomIndex}`);
-        if (b.start === h) {
-          // 只在預約的第一格顯示姓名與時段
-          cell.appendChild(createEl('div', b.name));
-          cell.appendChild(createEl('div', `${formatHour(b.start)}–${formatHour(b.end)}`, 'sub'));
-        }
-        gridBox.appendChild(cell);
+      const label = createEl('div', formatHour(h), 'time');
+      label.style.gridColumn = 1;
+      label.style.gridRow = rowOf(h);
+      gridBox.appendChild(label);
+
+      ROOMS.forEach((name, roomIndex) => {
+        const taken = dayBookings.some(b => b.room === roomIndex && b.start <= h && h < b.end);
+        if (taken) return;
+        const slot = createEl('button', '+', `slot room-${roomIndex}`);
+        slot.type = 'button';
+        slot.style.gridColumn = roomIndex + 2;
+        slot.style.gridRow = rowOf(h);
+        slot.setAttribute('aria-label', `預約${name} ${formatHour(h)}`);
+        slot.addEventListener('click', () => fillForm(roomIndex, viewDate, h));
+        gridBox.appendChild(slot);
       });
     }
+
+    // 預約色塊：跨越起訖的所有列
+    dayBookings.forEach(b => {
+      const block = createEl('div', '', `booked room-${b.room}` + (b.id === freshId ? ' fresh' : ''));
+      block.style.gridColumn = b.room + 2;
+      block.style.gridRow = `${rowOf(b.start)} / ${rowOf(b.end)}`;
+      block.appendChild(createEl('div', b.name, 'who'));
+      block.appendChild(createEl('div', `${formatHour(b.start)}–${formatHour(b.end)}`, 'span'));
+      gridBox.appendChild(block);
+    });
+
+    // 現在時間線：只在查看今天、且在營業時段內出現
+    if (isToday && now.getHours() >= OPEN_HOUR && now.getHours() < CLOSE_HOUR) {
+      const line = createEl('div', '', 'nowline');
+      line.style.gridRow = rowOf(now.getHours());
+      line.style.setProperty('--at', `${(now.getMinutes() / 60) * 100}%`);
+      gridBox.appendChild(line);
+    }
+  }
+
+  // 點空時段：把會議室、日期與起訖時段帶入表單
+  function fillForm(roomIndex, dateStr, hour) {
+    roomSelect.value = roomIndex;
+    dateInput.value = dateStr;
+    startSelect.value = hour;
+    endSelect.value = hour + 1;
+    messageBox.className = 'message';
+    nameInput.focus();
   }
 
   // 預約列表：依時間排序
@@ -403,7 +594,7 @@
     listBody.innerHTML = '';
     if (dayBookings.length === 0) {
       const tr = document.createElement('tr');
-      const td = createEl('td', '這一天還沒有預約。', 'empty');
+      const td = createEl('td', '這一天還沒有預約。點看板上的空時段，或使用右側表單新增。', 'empty');
       td.colSpan = 3;
       tr.appendChild(td);
       listBody.appendChild(tr);
@@ -411,8 +602,11 @@
     }
     dayBookings.forEach(b => {
       const tr = document.createElement('tr');
-      tr.appendChild(createEl('td', `${formatHour(b.start)}–${formatHour(b.end)}`));
-      tr.appendChild(createEl('td', ROOMS[b.room]));
+      tr.appendChild(createEl('td', `${formatHour(b.start)}–${formatHour(b.end)}`, 'time-cell'));
+      const roomTd = createEl('td', '', `room-${b.room}`);
+      roomTd.appendChild(createEl('span', '', 'dot'));
+      roomTd.appendChild(document.createTextNode(ROOMS[b.room]));
+      tr.appendChild(roomTd);
       tr.appendChild(createEl('td', b.name));
       listBody.appendChild(tr);
     });
@@ -421,6 +615,8 @@
   // ===== 啟動 =====
   initForm();
   render();
+  // 每分鐘重繪一次，讓「現在」時間線與使用中狀態保持更新
+  setInterval(render, 60000);
 </script>
 </body>
 </html>
