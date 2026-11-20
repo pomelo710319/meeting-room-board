@@ -133,7 +133,29 @@
   }
   .board-head h2 { margin: 0; font-size: 30px; font-weight: 800; line-height: 1.2; }
   .board-head .weekday { display: block; font-size: 15px; font-weight: 400; color: var(--muted); }
-  .board-head input { width: auto; }
+  .board-head input, .board-head select { width: auto; }
+
+  /* ===== 看板控制列：日／週切換、前後翻頁 ===== */
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .group {
+    display: inline-flex;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .btn {
+    font: inherit;
+    font-size: 14px;
+    padding: 7px 12px;
+    color: var(--ink);
+    background: #fff;
+    border: 0;
+    cursor: pointer;
+  }
+  .group .btn + .btn { border-left: 1px solid var(--rule); }
+  .btn:hover { background: var(--rule-soft); }
+  .btn[aria-pressed="true"] { background: var(--ink); color: #fff; }
 
   /* ===== 時刻表看板 ===== */
   .scroller { overflow-x: auto; }
@@ -220,6 +242,19 @@
     border-radius: 50%;
     background: var(--now);
   }
+  /* 週視圖：七天一欄，整張看板用同一間會議室的顏色 */
+  .grid.week { grid-template-columns: 56px repeat(7, minmax(88px, 1fr)); min-width: 720px; }
+  .grid button.head {
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    background: transparent;
+    border-right: 0;
+    cursor: pointer;
+  }
+  .grid button.head:hover { background: var(--tint); }
+  .grid .head.is-today { background: var(--tint); }
+  .grid .head.is-today .state { color: var(--ink); font-weight: 700; }
   .room-0 { --room-color: var(--room-a); --tint: var(--room-a-tint); }
   .room-1 { --room-color: var(--room-b); --tint: var(--room-b-tint); }
   .room-2 { --room-color: var(--room-c); --tint: var(--room-c-tint); }
@@ -256,7 +291,19 @@
   <section class="board" aria-labelledby="boardTitle">
     <div class="board-head">
       <h2 id="boardTitle">當日預約</h2>
-      <input type="date" id="viewDate" aria-label="查看日期">
+      <div class="controls">
+        <div class="group" role="group" aria-label="檢視模式">
+          <button type="button" class="btn" id="modeDay" aria-pressed="true">日</button>
+          <button type="button" class="btn" id="modeWeek" aria-pressed="false">週</button>
+        </div>
+        <select id="weekRoom" aria-label="週視圖的會議室" hidden></select>
+        <div class="group" role="group" aria-label="切換日期">
+          <button type="button" class="btn" id="prevBtn">前一天</button>
+          <button type="button" class="btn" id="todayBtn">今天</button>
+          <button type="button" class="btn" id="nextBtn">後一天</button>
+        </div>
+        <input type="date" id="viewDate" aria-label="查看日期">
+      </div>
     </div>
     <div class="scroller">
       <div id="grid" class="grid"></div>
@@ -264,9 +311,7 @@
 
     <h3 class="list-title">預約列表</h3>
     <table>
-      <thead>
-        <tr><th>時段</th><th>會議室</th><th>預約人</th></tr>
-      </thead>
+      <thead id="listHead"></thead>
       <tbody id="list"></tbody>
     </table>
   </section>
@@ -323,6 +368,17 @@
   const gridBox = document.getElementById('grid');
   const listBody = document.getElementById('list');
   const todayText = document.getElementById('todayText');
+  const listHead = document.getElementById('listHead');
+  const modeDayBtn = document.getElementById('modeDay');
+  const modeWeekBtn = document.getElementById('modeWeek');
+  const weekRoomSelect = document.getElementById('weekRoom');
+  const prevBtn = document.getElementById('prevBtn');
+  const todayBtn = document.getElementById('todayBtn');
+  const nextBtn = document.getElementById('nextBtn');
+
+  // 看板狀態：'day' 是三間會議室並排的單日視圖，'week' 是單一會議室的整週視圖
+  let viewMode = 'day';
+  let weekRoom = 0; // 週視圖目前選的會議室（ROOMS 索引）
 
   // 剛送出的預約 id，用來讓該色塊播放一次出現動畫
   let freshId = null;
@@ -340,6 +396,31 @@
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${d.getFullYear()}-${m}-${day}`;
+  }
+
+  // 把 Date 轉成 YYYY-MM-DD（本機時區）
+  function toDateString(date) {
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${date.getFullYear()}-${m}-${day}`;
+  }
+
+  // 日期字串加減天數（用本機時間運算，跨月、跨年都正確）
+  function addDays(dateStr, n) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return toDateString(new Date(y, m - 1, d + n));
+  }
+
+  // 取得該日所在那一週的星期一（週一為一週的開始）
+  function mondayOf(dateStr) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dow = new Date(y, m - 1, d).getDay(); // 0 = 週日
+    return addDays(dateStr, -((dow + 6) % 7));
+  }
+
+  // 目前看板查看的日期（輸入框被清空時退回今天）
+  function currentViewDate() {
+    return viewDateInput.value || todayString();
   }
 
   // 把 YYYY-MM-DD 轉成「11 月 20 日」與「星期五」
@@ -400,6 +481,7 @@
   function initForm() {
     ROOMS.forEach((name, index) => {
       roomSelect.appendChild(new Option(name, index));
+      weekRoomSelect.appendChild(new Option(name, index));
     });
     // 開始時段：08:00 ~ 19:00
     for (let h = OPEN_HOUR; h < CLOSE_HOUR; h++) {
@@ -433,6 +515,31 @@
   });
 
   viewDateInput.addEventListener('change', render);
+
+  // 前後翻頁：日視圖一次一天，週視圖一次一週
+  function shiftView(direction) {
+    const step = viewMode === 'week' ? 7 : 1;
+    viewDateInput.value = addDays(currentViewDate(), direction * step);
+    render();
+  }
+  prevBtn.addEventListener('click', () => shiftView(-1));
+  nextBtn.addEventListener('click', () => shiftView(1));
+  todayBtn.addEventListener('click', () => {
+    viewDateInput.value = todayString();
+    render();
+  });
+
+  // 日／週切換；週視圖會停在目前查看日期所在的那一週
+  function setViewMode(mode) {
+    viewMode = mode;
+    render();
+  }
+  modeDayBtn.addEventListener('click', () => setViewMode('day'));
+  modeWeekBtn.addEventListener('click', () => setViewMode('week'));
+  weekRoomSelect.addEventListener('change', () => {
+    weekRoom = Number(weekRoomSelect.value);
+    render();
+  });
 
   // ===== 送出預約 =====
   form.addEventListener('submit', (event) => {
@@ -485,6 +592,7 @@
     );
     nameInput.value = '';
     viewDateInput.value = booking.date;
+    weekRoom = booking.room; // 週視圖也要看得到剛送出的預約
     freshId = booking.id;
     render();
     freshId = null;
@@ -492,7 +600,23 @@
 
   // ===== 畫面繪製 =====
   function render() {
-    const viewDate = viewDateInput.value || todayString();
+    const viewDate = currentViewDate();
+    const isWeek = viewMode === 'week';
+
+    // 控制列：依模式切換按鈕文字與選項
+    modeDayBtn.setAttribute('aria-pressed', String(!isWeek));
+    modeWeekBtn.setAttribute('aria-pressed', String(isWeek));
+    weekRoomSelect.hidden = !isWeek;
+    weekRoomSelect.value = weekRoom;
+    prevBtn.textContent = isWeek ? '上一週' : '前一天';
+    todayBtn.textContent = isWeek ? '本週' : '今天';
+    nextBtn.textContent = isWeek ? '下一週' : '後一天';
+
+    if (isWeek) {
+      renderWeek(viewDate);
+      return;
+    }
+
     const dayBookings = loadBookings()
       .filter(b => b.date === viewDate)
       .sort((a, b) => a.start - b.start || a.room - b.room);
@@ -503,7 +627,19 @@
     boardTitle.appendChild(createEl('span', d.weekday, 'weekday'));
 
     renderGrid(dayBookings, viewDate);
-    renderList(dayBookings);
+    renderList(dayBookings, false);
+  }
+
+  // 現在時間線：只在查看含「今天」的畫面、且在營業時段內出現
+  // column 是時間線橫跨的格線欄位（日視圖跨全部會議室，週視圖只在今天那一欄）
+  function appendNowLine(column) {
+    const now = new Date();
+    if (now.getHours() < OPEN_HOUR || now.getHours() >= CLOSE_HOUR) return;
+    const line = createEl('div', '', 'nowline');
+    line.style.gridColumn = column;
+    line.style.gridRow = rowOf(now.getHours());
+    line.style.setProperty('--at', `${(now.getMinutes() / 60) * 100}%`);
+    gridBox.appendChild(line);
   }
 
   // 目前的格線列號（第 1 列是標題，之後每小時一列）
@@ -514,6 +650,7 @@
   // 時刻表看板：每列一小時，每欄一間會議室；預約是跨列的連續色塊
   function renderGrid(dayBookings, viewDate) {
     gridBox.innerHTML = '';
+    gridBox.className = 'grid'; // 從週視圖切回來時，清掉週視圖的樣式
     const now = new Date();
     const isToday = viewDate === todayString();
 
@@ -570,13 +707,78 @@
       gridBox.appendChild(block);
     });
 
-    // 現在時間線：只在查看今天、且在營業時段內出現
-    if (isToday && now.getHours() >= OPEN_HOUR && now.getHours() < CLOSE_HOUR) {
-      const line = createEl('div', '', 'nowline');
-      line.style.gridRow = rowOf(now.getHours());
-      line.style.setProperty('--at', `${(now.getMinutes() / 60) * 100}%`);
-      gridBox.appendChild(line);
+    if (isToday) appendNowLine('2 / -1');
+  }
+
+  // 週視圖：單一會議室，週一到週日各一欄；預約是跨時段的連續色塊
+  function renderWeek(viewDate) {
+    const monday = mondayOf(viewDate);
+    const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+    const today = todayString();
+    const weekBookings = loadBookings()
+      .filter(b => b.room === weekRoom && days.includes(b.date))
+      .sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
+
+    const first = describeDate(days[0]);
+    const last = describeDate(days[6]);
+    boardTitle.textContent = '';
+    boardTitle.appendChild(document.createTextNode(`${first.day} – ${last.day}`));
+    boardTitle.appendChild(createEl('span', `${ROOMS[weekRoom]}・週一至週日`, 'weekday'));
+
+    gridBox.innerHTML = '';
+    gridBox.className = `grid week room-${weekRoom}`;
+    gridBox.appendChild(createEl('div', '', 'head corner'));
+
+    // 標題列：點日期可跳到該天的日視圖
+    days.forEach(dateStr => {
+      const d = describeDate(dateStr);
+      const isToday = dateStr === today;
+      const head = createEl('button', '', 'head' + (isToday ? ' is-today' : ''));
+      head.type = 'button';
+      head.title = `查看 ${d.day} 的日視圖`;
+      head.appendChild(createEl('div', d.weekday.replace('星期', '週') + (isToday ? '・今天' : ''), 'name'));
+      head.appendChild(createEl('div', d.day, 'state'));
+      head.addEventListener('click', () => {
+        viewDateInput.value = dateStr;
+        setViewMode('day');
+      });
+      gridBox.appendChild(head);
+    });
+
+    // 時間標籤與空時段
+    for (let h = OPEN_HOUR; h < CLOSE_HOUR; h++) {
+      const label = createEl('div', formatHour(h), 'time');
+      label.style.gridColumn = 1;
+      label.style.gridRow = rowOf(h);
+      gridBox.appendChild(label);
+
+      days.forEach((dateStr, dayIndex) => {
+        const taken = weekBookings.some(b => b.date === dateStr && b.start <= h && h < b.end);
+        if (taken) return;
+        const slot = createEl('button', '+', 'slot');
+        slot.type = 'button';
+        slot.style.gridColumn = dayIndex + 2;
+        slot.style.gridRow = rowOf(h);
+        slot.setAttribute('aria-label', `預約${ROOMS[weekRoom]} ${dateStr} ${formatHour(h)}`);
+        slot.addEventListener('click', () => fillForm(weekRoom, dateStr, h));
+        gridBox.appendChild(slot);
+      });
     }
+
+    // 預約色塊
+    weekBookings.forEach(b => {
+      const block = createEl('div', '', 'booked' + (b.id === freshId ? ' fresh' : ''));
+      block.style.gridColumn = days.indexOf(b.date) + 2;
+      block.style.gridRow = `${rowOf(b.start)} / ${rowOf(b.end)}`;
+      block.appendChild(createEl('div', b.name, 'who'));
+      block.appendChild(createEl('div', `${formatHour(b.start)}–${formatHour(b.end)}`, 'span'));
+      gridBox.appendChild(block);
+    });
+
+    const todayIndex = days.indexOf(today);
+    if (todayIndex >= 0) appendNowLine(String(todayIndex + 2));
+
+    renderList(weekBookings, true);
   }
 
   // 點空時段：把會議室、日期與起訖時段帶入表單
@@ -589,19 +791,32 @@
     nameInput.focus();
   }
 
-  // 預約列表：依時間排序
-  function renderList(dayBookings) {
+  // 預約列表：依時間排序；週視圖多一個日期欄
+  function renderList(bookings, withDate) {
+    const headers = (withDate ? ['日期'] : []).concat(['時段', '會議室', '預約人']);
+    listHead.innerHTML = '';
+    const headRow = document.createElement('tr');
+    headers.forEach(text => headRow.appendChild(createEl('th', text)));
+    listHead.appendChild(headRow);
+
     listBody.innerHTML = '';
-    if (dayBookings.length === 0) {
+    if (bookings.length === 0) {
       const tr = document.createElement('tr');
-      const td = createEl('td', '這一天還沒有預約。點看板上的空時段，或使用右側表單新增。', 'empty');
-      td.colSpan = 3;
+      const emptyText = withDate
+        ? '這一週這間會議室還沒有預約。點看板上的空時段，或使用右側表單新增。'
+        : '這一天還沒有預約。點看板上的空時段，或使用右側表單新增。';
+      const td = createEl('td', emptyText, 'empty');
+      td.colSpan = headers.length;
       tr.appendChild(td);
       listBody.appendChild(tr);
       return;
     }
-    dayBookings.forEach(b => {
+    bookings.forEach(b => {
       const tr = document.createElement('tr');
+      if (withDate) {
+        const d = describeDate(b.date);
+        tr.appendChild(createEl('td', `${d.day} ${d.weekday.replace('星期', '週')}`, 'time-cell'));
+      }
       tr.appendChild(createEl('td', `${formatHour(b.start)}–${formatHour(b.end)}`, 'time-cell'));
       const roomTd = createEl('td', '', `room-${b.room}`);
       roomTd.appendChild(createEl('span', '', 'dot'));
