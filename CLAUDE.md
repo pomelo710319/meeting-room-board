@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 專案概要
 
-會議室預約看板：純前端單頁應用，整個 app 就是 `index.html`（HTML + CSS + JS 同一檔）。沒有建置、lint 或測試工具。
+會議室預約看板：純前端單頁應用，app 由 `index.html`（HTML + CSS + 主要 JS）與 `app.js`（衝突判定）組成，另有 `test.html`。沒有建置、lint 或測試工具。
 
 ## 規格文件
 
@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 開發規範
 
-- 本專案為單一 HTML 檔案，檔名固定為 `index.html`：禁止拆分成多個檔案，禁止引入外部框架或函式庫（含 CDN）。
+- 本專案為 index.html + app.js + test.html 三檔，禁止再拆分其他檔案，禁止引入外部框架或函式庫（含 CDN）。`app.js` 以一般 `<script src>` 載入（非 ES module），目前放衝突判定函式 `findConflict`。
 - 所有介面文字與程式註解使用繁體中文。
 - 每次修改後，用一句話說明改了什麼。
 - 不做登入、後端、資料庫、多人同步、通知（spec.md 非目標）。
