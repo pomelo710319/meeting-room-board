@@ -263,7 +263,9 @@
   .room-2 { --room-color: var(--room-c); --tint: var(--room-c-tint); }
 
   /* ===== 預約列表 ===== */
-  .list-title { margin: 28px 0 8px; font-size: 16px; }
+  .list-head { display: flex; align-items: center; justify-content: space-between; margin: 28px 0 8px; }
+  .list-title { margin: 0; font-size: 16px; }
+  .export-btn { border: 1px solid var(--rule); border-radius: 4px; }
   table { width: 100%; border-collapse: collapse; font-size: 15px; }
   th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--rule); }
   th { color: var(--muted); font-weight: 400; font-size: 14px; }
@@ -321,7 +323,11 @@
       <div id="grid" class="grid"></div>
     </div>
 
-    <h3 class="list-title">預約列表</h3>
+    <div class="list-head">
+      <h3 class="list-title">預約列表</h3>
+      <button type="button" class="btn export-btn" id="exportBtn">匯出 CSV</button>
+    </div>
+
     <table>
       <thead id="listHead"></thead>
       <tbody id="list"></tbody>
@@ -387,6 +393,7 @@
   const prevBtn = document.getElementById('prevBtn');
   const todayBtn = document.getElementById('todayBtn');
   const nextBtn = document.getElementById('nextBtn');
+  const exportBtn = document.getElementById('exportBtn');
 
   // 看板狀態：'day' 是三間會議室並排的單日視圖，'week' 是單一會議室的整週視圖
   let viewMode = 'day';
@@ -470,6 +477,38 @@
     localStorage.setItem(STORAGE_KEY, JSON.stringify(bookings));
   }
 
+  // ===== 匯出 CSV =====
+
+  // 轉成 CSV 欄位：含逗號、引號、換行時以雙引號包起來；
+  // 開頭為 = + - @ 的文字前面補單引號，避免用 Excel 開啟時被當成公式執行
+  function csvCell(value) {
+    let text = String(value);
+    if (/^[=+\-@\t\r]/.test(text)) text = "'" + text;
+    return /[",\r\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+  }
+
+  // 匯出全部預約（依日期、開始時間排序）為 CSV 檔下載
+  function exportCsv() {
+    const rows = loadBookings().sort((a, b) =>
+      a.date.localeCompare(b.date) || a.start - b.start || a.room - b.room);
+    const pad = h => String(h).padStart(2, '0') + ':00';
+    const lines = [['日期', '會議室', '開始', '結束', '預約人']];
+    rows.forEach(b => lines.push([
+      b.date, ROOMS[b.room] || '', pad(b.start), pad(b.end), b.name,
+    ]));
+    const csv = lines.map(r => r.map(csvCell).join(',')).join('\r\n');
+    // 開頭加 BOM，Excel 才會正確辨識 UTF-8 中文
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `預約紀錄-${todayString()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
   // ===== 衝突檢查 =====
 
   // 找出同會議室、同日期、時段重疊的預約；沒有則回傳 undefined
@@ -546,6 +585,7 @@
     viewMode = mode;
     render();
   }
+  exportBtn.addEventListener('click', exportCsv);
   modeDayBtn.addEventListener('click', () => setViewMode('day'));
   modeWeekBtn.addEventListener('click', () => setViewMode('week'));
   weekRoomSelect.addEventListener('change', () => {
