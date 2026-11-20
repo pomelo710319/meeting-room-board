@@ -156,6 +156,9 @@
   .group .btn + .btn { border-left: 1px solid var(--rule); }
   .btn:hover { background: var(--rule-soft); }
   .btn[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  /* 「今天／本週」按鈕用現在時間線的紅色，和前後翻頁區分 */
+  .btn.today { background: var(--now); color: #fff; font-weight: 700; }
+  .btn.today:hover { background: #b8271f; }
 
   /* ===== 時刻表看板 ===== */
   .scroller { overflow-x: auto; }
@@ -299,7 +302,7 @@
         <select id="weekRoom" aria-label="週視圖的會議室" hidden></select>
         <div class="group" role="group" aria-label="切換日期">
           <button type="button" class="btn" id="prevBtn">前一天</button>
-          <button type="button" class="btn" id="todayBtn">今天</button>
+          <button type="button" class="btn today" id="todayBtn">今天</button>
           <button type="button" class="btn" id="nextBtn">後一天</button>
         </div>
         <input type="date" id="viewDate" aria-label="查看日期">
