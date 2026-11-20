@@ -275,6 +275,15 @@
     border-radius: 2px;
     background: var(--room-color);
   }
+  td.action-cell { text-align: right; white-space: nowrap; }
+  .cancel-btn {
+    font: inherit; font-size: 13px;
+    padding: 2px 10px;
+    border: 1px solid var(--now); border-radius: 4px;
+    background: transparent; color: var(--now);
+    cursor: pointer;
+  }
+  .cancel-btn:hover { background: var(--now); color: #fff; }
   .empty { color: var(--muted); text-align: center; padding: 20px; }
 
   @media (prefers-reduced-motion: reduce) {
@@ -794,9 +803,17 @@
     nameInput.focus();
   }
 
+  // 取消預約：確認後才從 localStorage 刪除該筆，並重繪
+  function cancelBooking(b) {
+    const msg = `確定要取消這筆預約嗎？\n${ROOMS[b.room]}　${b.date}　${formatHour(b.start)}–${formatHour(b.end)}　${b.name}`;
+    if (!confirm(msg)) return;
+    saveBookings(loadBookings().filter(x => x.id !== b.id));
+    render();
+  }
+
   // 預約列表：依時間排序；週視圖多一個日期欄
   function renderList(bookings, withDate) {
-    const headers = (withDate ? ['日期'] : []).concat(['時段', '會議室', '預約人']);
+    const headers = (withDate ? ['日期'] : []).concat(['時段', '會議室', '預約人', '']);
     listHead.innerHTML = '';
     const headRow = document.createElement('tr');
     headers.forEach(text => headRow.appendChild(createEl('th', text)));
@@ -826,6 +843,12 @@
       roomTd.appendChild(document.createTextNode(ROOMS[b.room]));
       tr.appendChild(roomTd);
       tr.appendChild(createEl('td', b.name));
+      const actionTd = createEl('td', '', 'action-cell');
+      const cancelBtn = createEl('button', '取消', 'cancel-btn');
+      cancelBtn.type = 'button';
+      cancelBtn.addEventListener('click', () => cancelBooking(b));
+      actionTd.appendChild(cancelBtn);
+      tr.appendChild(actionTd);
       listBody.appendChild(tr);
     });
   }
